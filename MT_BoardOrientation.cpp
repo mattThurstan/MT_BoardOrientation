@@ -1,7 +1,7 @@
 /*
  * MT_BoardOrientation.cpp - Orientation setup library for long/short/skate boards. Used in longboardLight1 project.
  * Currently using MPU6050 6-axis motion sensor.
- * Created by MTS Standish (mattThurstan), 2017.
+ * MTS Standish (mattThurstan), 2018.
  * Copyleft.
  */
  
@@ -42,7 +42,11 @@ THE SOFTWARE.
  /*
   * MPU6050: 			X=Right/Left, Y=Forward/Backward, Z=Up/Down
   * orientation (byte):	0=flat, 1=upside-down, 2=up, 3=down, 4=left-side, 5=right-side
-  * direction (byte):	-1=stationary, 0=forward, 1=back, 2=up, 3=down, 4=left, 5=right
+  * direction (byte):	0=forward, 1=back, 2=up, 3=down, 4=left, 5=right, 6=stationary
+  */
+    
+ /*
+  * Rolling average taken from example at http://playground.arduino.cc/Main/RunningAverage
   */
 
 #include "Arduino.h"
@@ -66,17 +70,20 @@ THE SOFTWARE.
   #define DEBUG_PRINTLNF(x)  //blank line
 #endif
 
-
+/*
+ * Declare at start of Arduino project.
+ * eg. MT_BoardOrientation _orient;
+ */
 MT_BoardOrientation::MT_BoardOrientation() {
 	
 	/*----------------------------MPU6050 init---------------------------*/
 	//X=Right/Left, Y=Forward/Backward, Z=Up/Down
-	_mpu6050AccelOffset[0] = 436; 				//XYZ accel offsets to write to the MPU6050 - get from full calibration and save to memory
-	_mpu6050AccelOffset[1] = 1956;				//..these are quick ones i worked out for my board setup..
-	_mpu6050AccelOffset[2] = 1318;				//..
-	_mpu6050GyroOffset[0] = 9;       			//XYZ gyro offsets to write to the MPU6050 - get from full calibration and save to memory
-	_mpu6050GyroOffset[1] = -32; 
-	_mpu6050GyroOffset[2] = 69;
+	_mpu6050AccelOffset[0] = -566;//436; 				//XYZ accel offsets to write to the MPU6050 - get from full calibration and save to memory
+	_mpu6050AccelOffset[1] = -6153;//1956;				//..these are quick ones i worked out for my board setup..
+	_mpu6050AccelOffset[2] = 1511;//1318;				//..
+	_mpu6050GyroOffset[0] = -13;//9;       			//XYZ gyro offsets to write to the MPU6050 - get from full calibration and save to memory
+	_mpu6050GyroOffset[1] = -14;//-32; 
+	_mpu6050GyroOffset[2] = -5;//69;
 	
 	/*----------------------------calibration----------------------------*/
 	_mpu6050CalibratePrevMillis = 0;            //previous time for reference
@@ -115,9 +122,9 @@ MT_BoardOrientation::MT_BoardOrientation() {
 	_mpu6050FilteredCur[2] = 0;
 	
 	/*----------------------------direction------------------------------*/
-	_diAccelSave = 0;
-	_diDirectionCounter = 0;            		//restricted by '_directionSampleTotal'
-	_directionCur = 0;                 			// -1 = stationary, 0 = forward, 1=back, 2=up, 3=down, 4=left, 5=right
+	//_diAccelSave = 0;
+	//_diDirectionCounter = 0;            		//restricted by '_directionSampleTotal'
+	_directionCur = 0;                 			// 0=forward, 1=back, 2=up, 3=down, 4=left, 5=right, 6=stationary
 
 	/*----------------------------orientation----------------------------*/
 	_orientation = 0;        					//0=flat, 1=upside-down, 2=up, 3=down, 4=left-side, 5=right-side
@@ -136,8 +143,13 @@ MT_BoardOrientation::MT_BoardOrientation() {
 	
 	//TEST
 	//unsigned long t = get_last_time(); //seems to be ok with only declaring it in the '.h' file. is this the correct way?
+	
+	_zeroMotion = false;						//zero motion detection flag
 }
 
+/*
+ * Call from setup to initialise.
+ */
 void MT_BoardOrientation::Init() {
 
 	#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -157,14 +169,23 @@ void MT_BoardOrientation::Init() {
 	DEBUG_PRINTLN(_mpu6050.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
 	//set offsets 
-	_mpu6050.setXAccelOffset(_mpu6050AccelOffset[0]);
-	_mpu6050.setYAccelOffset(_mpu6050AccelOffset[1]);
-	_mpu6050.setZAccelOffset(_mpu6050AccelOffset[2]);
-	_mpu6050.setXGyroOffset(_mpu6050GyroOffset[0]);
-	_mpu6050.setYGyroOffset(_mpu6050GyroOffset[1]);
-	_mpu6050.setZGyroOffset(_mpu6050GyroOffset[2]); 
+	//_mpu6050.setXAccelOffset(_mpu6050AccelOffset[0]);
+	//_mpu6050.setYAccelOffset(_mpu6050AccelOffset[1]);
+	//_mpu6050.setZAccelOffset(_mpu6050AccelOffset[2]);
+	//_mpu6050.setXGyroOffset(_mpu6050GyroOffset[0]);
+	//_mpu6050.setYGyroOffset(_mpu6050GyroOffset[1]);
+	//_mpu6050.setZGyroOffset(_mpu6050GyroOffset[2]);
+	
+	_mpu6050.setIntZeroMotionEnabled(true);	//turn on zero-motion detection
+	//_mpu6050.setZeroMotionDetectionThreshold(2);	//156 ?
+	//_mpu6050.setZeroMotionDetectionDuration(1);	//1 LSB = 64ms
+	
+	diInit();
 }
 
+/*
+ * (alternate) Call from setup to initialise (alt ver with variables).
+ */
 void MT_BoardOrientation::InitWithVars(int16_t accelOffest[3], int16_t gyroOffest[3]) {	
 	_mpu6050AccelOffset[0] = accelOffest[0];
 	_mpu6050AccelOffset[1] = accelOffest[1];
@@ -186,6 +207,50 @@ void MT_BoardOrientation::set_last_read_angle_data(unsigned long time, float acc
 	_mpu6050GyroPrev[2] = z_gyro;
 }
 
+/*
+ * Initialise direction rolling average array.
+ */
+void MT_BoardOrientation::diInit() {
+	//_diSize = n;
+    _diAvr = (float*) malloc(_diSize * sizeof(float));
+    if (_diAvr == NULL) _diSize = 0;
+    diClear();
+}
+
+/*
+* Clear direction rolling average array.
+*/
+void MT_BoardOrientation::diClear() {
+	_diCnt = 0;
+    _diIdx = 0;
+    _diSum = 0.0;
+    for (int i = 0; i< _diSize; i++) _diAvr[i] = 0.0;  // needed to keep addValue simple
+}
+
+/*
+* Add value to direction rolling average array.
+*/
+void MT_BoardOrientation::diAddValue(float f) {
+	if (_diAvr == NULL) return;
+    _diSum -= _diAvr[_diIdx];
+    _diAvr[_diIdx] = f;
+    _diSum += _diAvr[_diIdx];
+    _diIdx++;
+    if (_diIdx == _diSize) _diIdx = 0;  // faster than %
+    if (_diCnt < _diSize) _diCnt++;
+}
+
+/*
+* Get average (result) from direction rolling average array.
+*/
+float MT_BoardOrientation::diGetAverage() {
+	if (_diCnt == 0) return NAN;
+    return _diSum / _diCnt;
+}
+
+/*
+ * Called from a timed loop within the main loop.
+ */
 void MT_BoardOrientation::ReadFiltered() {
 	
 	unsigned long mpu6050ReadCurMillis = millis();     //get current time
@@ -207,8 +272,9 @@ void MT_BoardOrientation::ReadFiltered() {
 
     //add to the average for direction calc
     //..this really needs to be a rolling average
-    _diAccelSave += accel_y;
-    _diDirectionCounter++;
+    //_diAccelSave += accel_y;
+	diAddValue(accel_y);	//erm, think this is..
+    //_diDirectionCounter++;
     
     // Get angle values from accelerometer
     float RADIANS_TO_DEGREES = 180/3.14159;
@@ -253,25 +319,57 @@ void MT_BoardOrientation::ReadFiltered() {
     // Update the previous saved data with the latest values - saving un-adjusted values to previous, not minus/plus values..
     set_last_read_angle_data(mpu6050ReadCurMillis, accel_y, angle_x, angle_y, angle_z, unfiltered_gyro_angle_x, unfiltered_gyro_angle_y, unfiltered_gyro_angle_z);
 
+	DEBUG_PRINT_HEADER();
+	DEBUG_PRINTF("accel_y ");
+	DEBUG_PRINT(accel_y);
+	DEBUG_PRINTF(", angle_xyz ");
+	DEBUG_PRINT(angle_x);
+	DEBUG_PRINTF(", ");
+	DEBUG_PRINT(angle_y);
+	DEBUG_PRINTF(", ");
+	DEBUG_PRINT(angle_z);
+	DEBUG_PRINTF(", unfiltered_gyro_angle_xyx ");
+	DEBUG_PRINT(unfiltered_gyro_angle_x);
+	DEBUG_PRINTF(", ");
+	DEBUG_PRINT(unfiltered_gyro_angle_y);
+	DEBUG_PRINTF(", ");
+	DEBUG_PRINT(unfiltered_gyro_angle_z);
+	DEBUG_PRINTLNF(".");
+	
+	//TEMP
+	//_zeroMotion = _mpu6050.getIntZeroMotionStatus();
+	//_zeroMotion = _mpu6050.getIntMotionStatus();	//???
 }
 
+/*
+* Called from a timed loop within the main loop.
+*/
 void MT_BoardOrientation::ReadDirection() {
 	//dependant on whether tracking sub-mode is actually running, otherwise waste of processing..
-	if (_diDirectionCounter >= _directionSampleTotal) {
+	//if (_diDirectionCounter >= _directionSampleTotal) {
 	  //..this really needs to be a rolling average
-	  unsigned int average = (_diAccelSave / _directionSampleTotal);
-	  if (average > _mpu6050AccelZero[1] + 100) {
+	  //unsigned int average = (_diAccelSave / _directionSampleTotal);
+	  if (diGetAverage() > (_mpu6050AccelZero[1] + _diThreshold)) {	//100
 		_directionCur = 0;  //going forwards
-	  } else if (average < _mpu6050AccelZero[1] - 100) {
+	  } else if (diGetAverage() < (_mpu6050AccelZero[1] - _diThreshold)) {
 		_directionCur = 1;  //going backwards
 	  } else {
-		//_directionCur = -1;  //stationary
+		_directionCur = 6;  //stationary
 	  }
-	  _diAccelSave = 0;
-	  _diDirectionCounter = 0;
-	}
+	  //_diAccelSave = 0;
+	  diClear();
+	//  _diDirectionCounter = 0;
+	//}
+	
+	DEBUG_PRINT_HEADER();
+	DEBUG_PRINTF("_directionCur ");
+	DEBUG_PRINT(_directionCur);
+	DEBUG_PRINTLNF(".");
 }
 
+/*
+* Called from a timed loop within the main loop.
+*/
 void MT_BoardOrientation::ReadOrientation() {
 
     float cutoff = 45;  //starting at zero calibration, we need to know 90deg either way, so 45 is halfway point anywhere from 0
@@ -322,6 +420,10 @@ void MT_BoardOrientation::ReadOrientation() {
       }
     }
 
+	DEBUG_PRINT_HEADER();
+	DEBUG_PRINTF("_orientation ");
+	DEBUG_PRINT(_orientation);
+	DEBUG_PRINTLNF(".");
 }
 
 void MT_BoardOrientation::QuickCalibration() {

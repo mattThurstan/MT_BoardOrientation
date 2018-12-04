@@ -1,7 +1,7 @@
 /*
  * MT_BoardOrientation.h - Orientation setup library for long/short/skate boards. Used in longboardLight1 project.
  * Currently using MPU6050 6-axis motion sensor.
- * Created by MTS Standish (mattThurstan), 2017.
+ * MTS Standish (mattThurstan), 2018.
  * Copyleft.
  */
  
@@ -9,6 +9,10 @@
   * MPU6050: 			X=Right/Left, Y=Forward/Backward, Z=Up/Down
   * orientation (byte):	0=flat, 1=upside-down, 2=up, 3=down, 4=left-side, 5=right-side
   * direction (byte):	-1=stationary, 0=forward, 1=back, 2=up, 3=down, 4=left, 5=right
+  */
+  
+ /*
+  * Rolling average taken from example at http://playground.arduino.cc/Main/RunningAverage
   */
 
 #ifndef __MT_BOARDORIENTATION_H__
@@ -28,14 +32,27 @@
 /*----------------------------main header declerations----------------------------*/
 class MT_BoardOrientation
 {
+  protected:
+    uint8_t _diSize = 10;
+    uint8_t _diCnt;
+    uint8_t _diIdx;
+    float   _diSum;
+    float * _diAvr;
+	
   private:
+	void diInit();
+	void diClear();
+    void diAddValue(float);
+	float diGetAverage();
+	const float _diThreshold = 100.00;				//threshold tolerance for 'dead zone' at center of readings
+	
 	/*----------------------------MPU6050 init---------------------------*/
 	MPU6050 _mpu6050;  								//accel gyro;
 	int16_t _mpu6050AccelOffset[3];       			//XYZ accel offsets to write to the MPU6050 - get from full calibration and save to memory
 	int16_t _mpu6050GyroOffset[3];             		//XYZ gyro offsets to write to the MPU6050 - get from full calibration and save to memory
 	
 	/*----------------------------calibration----------------------------*/
-	const int _mpu6050CalibrateSampleTotal = 100;	//how many samples to take at once when calibrating
+	const int _mpu6050CalibrateSampleTotal = 1000;	//how many samples to take at once when calibrating
 	const int _mpu6050CalibrateAccelThreshold = 10;	//threshold tolerance for 'dead zone' at center of readings
 	const int _mpu6050CalibrateGyroThreshold = 3; 	//..for gyro
 	long _mpu6050CalibratePrevMillis;         		//previous time for reference
@@ -61,10 +78,15 @@ class MT_BoardOrientation
 	/*----------------------------direction------------------------------*/
 	//prob won't use 'stationary' cos the calculations will need something to get started, otherwise they will be a frame behind. better to have wrong direction for a split second, than have more complicated code
 	//also might try this as the average of a rolling buffer cos for 10 samples we wait 200 or 400ms..
-	const byte _directionSampleTotal = 10;     		//how many times to sample direction before making a decision on whether it is true or not
-	unsigned int _diAccelSave;
-	byte _diDirectionCounter;                 		//restricted by '_directionSampleTotal'
-	byte _directionCur;                				// -1 = stationary, 0 = forward, 1=back, 2=up, 3=down, 4=left, 5=right
+	//const byte _directionSampleTotal = 10;     		//how many times to sample direction before making a decision on whether it is true or not
+	//unsigned int _diAccelSave;
+	//float _diAccelSave[_directionSampleTotal];		//rolling average
+	//void addDiAccelSave(float a);
+	//void clearDiAccelSave();
+	//float getDiAccelSaveAverage();
+	
+	//byte _diDirectionCounter;                 	  //restricted by '_directionSampleTotal'
+	byte _directionCur;                				// 0=forward, 1=back, 2=up, 3=down, 4=left, 5=right, 6=stationary
 
 	/*----------------------------orientation----------------------------*/
 	byte _orientation;                  			//0=flat, 1=upside-down, 2=up, 3=down, 4=left-side, 5=right-side
@@ -91,6 +113,8 @@ class MT_BoardOrientation
 	void set_last_read_angle_data(unsigned long time, float accel_y, float x, float y, float z, float x_gyro, float y_gyro, float z_gyro);
 	
 	void doMPU6050ReadAverage();
+	
+	boolean _zeroMotion;						//zero motion detection flag
 
   public:
 	MT_BoardOrientation();
@@ -118,8 +142,8 @@ class MT_BoardOrientation
 	void SetMPU6050AccelOffset(int16_t ao[3]);
 	void SetMPU6050GyroOffset(int16_t go[3]);
 	
+	boolean GetZeroMotionStatus() { return _zeroMotion; }
+	
 };
 
 #endif
-
-
