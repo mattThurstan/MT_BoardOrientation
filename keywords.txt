@@ -1,4 +1,4 @@
-MT_BoardOrientationMPU6050 KEYWORD1	
+MT_BoardOrientation KEYWORD1	
 Init KEYWORD2
 InitWithVars KEYWORD2
 AddToAverageAccelY	KEYWORD2
