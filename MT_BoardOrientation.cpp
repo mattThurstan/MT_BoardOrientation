@@ -1,50 +1,15 @@
 /*
  * MT_BoardOrientation.cpp - Orientation setup library for long/short/skate boards. Used in longboardLight1 project.
+ * Calculates direction and orientation.
  * MTS Standish (mattThurstan), 2026.
  * Copyleft.
  */
  
-/*
- * Code contained within this file 'MT_BoardOrientation.cpp' was initially built with reference code from the following sources:
- * 
- * 'MPU-6050 Accelerometer + Gyro' by "Krodal" (arduino.cc user ) - June 2012 - Open Source / Public Domain.
- * 
- * https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/examples/MPU6050_raw/MPU6050_raw.ino
- * 
- * http://42bots.com/tutorials/arduino-script-for-mpu-6050-auto-calibration/ 
- * - Done by Luis Ródenas <luisrodenaslorda@gmail.com>
- * - Based on the I2Cdev library and previous work by Jeff Rowberg <jeff@rowberg.net>
- * 
- * https://vvvv.org/documentation/arduino02
- * 
-============================================
-I2Cdev device library code is placed under the MIT license
-Copyright (c) 2011 Jeff Rowberg
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-===============================================
-*/
-
  /*
-  * MPU6050: 			X=Right/Left, Y=Forward/Backward, Z=Up/Down
+  * IMU: 				X=Right/Left, Y=Forward/Backward, Z=Up/Down
   * orientation (byte):	0=flat, 1=upside-down, 2=up, 3=down, 4=left-side, 5=right-side
   * direction (byte):	0=forward, 1=back, 2=up, 3=down, 4=left, 5=right, 6=stationary
-  */
-    
- /*
+  *
   * Rolling average taken from example at http://playground.arduino.cc/Main/RunningAverage
   */
 

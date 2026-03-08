@@ -1,5 +1,6 @@
 /*
  * MT_BoardOrientation.h - Orientation setup library for long/short/skate boards. Used in longboardLight1 project.
+ * Calculates direction and orientation.
  * MTS Standish (mattThurstan), 2026.
  * Copyleft.
  */
