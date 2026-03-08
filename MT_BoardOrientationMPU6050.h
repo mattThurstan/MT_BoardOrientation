@@ -1,5 +1,5 @@
 /*
- * MT_BoardOrientation.h - Orientation setup library for long/short/skate boards. Used in longboardLight1 project.
+ * MT_BoardOrientationMPU6050.h - Orientation setup library for long/short/skate boards. Used in longboardLight1 project.
  * Currently using MPU6050 6-axis motion sensor.
  * MTS Standish (mattThurstan), 2018.
  * Copyleft.
@@ -15,8 +15,8 @@
   * Rolling average taken from example at http://playground.arduino.cc/Main/RunningAverage
   */
 
-#ifndef __MT_BOARDORIENTATION_H__
-#define __MT_BOARDORIENTATION_H__
+#ifndef __MT_BOARDORIENTATIONMPU6050_H__
+#define __MT_BOARDORIENTATIONMPU6050_H__
 
 #include "Arduino.h"
 #include <I2Cdev.h>                               	//I2C devices
@@ -30,7 +30,7 @@
 #endif
 
 /*----------------------------main header declerations----------------------------*/
-class MT_BoardOrientation
+class MT_BoardOrientationMPU6050
 {
   protected:
     uint8_t _diSize = 10;
