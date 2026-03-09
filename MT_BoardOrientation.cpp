@@ -13,7 +13,7 @@
   * Rolling average taken from example at http://playground.arduino.cc/Main/RunningAverage
   */
 
-//#include "Arduino.h"
+#include "Arduino.h"
 #include "MT_BoardOrientation.h"
 
 //#define DEBUG	//comment/un-comment
@@ -99,9 +99,9 @@ void MT_BoardOrientation::indClear() {
     for (int i = 0; i< _indSize; i++) _indAvr[i] = 0.0;  // needed to keep addValue simple
 }
 
-void MT_BoardOrientation::AddToAverage(float accelY, float roll) {
+void MT_BoardOrientation::AddToAverage(float accelY, float pitch) {
 	diAddValue(accelY);
-	indAddValue(roll);
+	indAddValue(pitch);
 }
 
 /*
